@@ -14,8 +14,26 @@
    limitations under the License.
  */
 
+/**
+ * @group Trigger Actions Framework
+ * @description The `TriggerBase` class is a base class for all trigger handlers.
+ *
+ * Trigger handlers are classes that define the logic that should be executed before or after
+ * a DML operation on a record.
+ * The `TriggerBase` class provides the following functionality:
+ *
+ * - A way to bypass the execution of specific trigger handlers.
+ * - A way to check if a specific trigger handler is bypassed.
+ * - A way to clear all bypasses.
+ * - A way to offset the number of existing DML rows.
+ * - A way to wait to finalize the DML operation.
+ * - A way to now finalize the DML operation.
+ * ---
+ * To use the `TriggerBase` class, you must create a subclass that implements the `TriggerAction` interface.
+ * The `TriggerAction` interface defines the methods that should be implemented by trigger actions.
+ */
 @SuppressWarnings(
-	'PMD.ApexDoc, PMD.StdCyclomaticComplexity, PMD.CyclomaticComplexity, PMD.cognitivecomplexity'
+	'PMD.StdCyclomaticComplexity,PMD.CyclomaticComplexity,PMD.CognitiveComplexity,PMD.PropertyNamingConventions'
 )
 public inherited sharing virtual class TriggerBase {
 	@TestVisible
@@ -51,12 +69,26 @@ public inherited sharing virtual class TriggerBase {
 		set;
 	}
 
+	/**
+	 * @description This method returns a map of the IDs of the records that have been seen in the `BEFORE_UPDATE`
+	 * context to the number of times they have been seen.
+	 *
+	 * @return A map of the IDs of the records that have been seen in the `BEFORE_UPDATE` context to
+	 * the number of times they have been seen.
+	 */
 	public static Map<Id, Integer> idToNumberOfTimesSeenBeforeUpdate {
 		get {
 			return CONTEXT_TO_UPDATE_COUNT.get(System.TriggerOperation.BEFORE_UPDATE);
 		}
 	}
 
+	/**
+	 * @description This method returns a map of the IDs of the records that have been seen
+	 * in the `AFTER_UPDATE` context to the number of times they have been seen.
+	 *
+	 * @return A map of the IDs of the records that have been seen in the `AFTER_UPDATE`
+	 * context to the number of times they have been seen.
+	 */
 	public static Map<Id, Integer> idToNumberOfTimesSeenAfterUpdate {
 		get {
 			return CONTEXT_TO_UPDATE_COUNT.get(System.TriggerOperation.AFTER_UPDATE);
@@ -76,31 +108,92 @@ public inherited sharing virtual class TriggerBase {
 				: '';
 		}
 	}
-
+	/**
+	 * @description This method bypasses the execution of the specified object.
+	 *
+	 * @param sObjectName The API name of the object to bypass.
+	 */
 	public static void bypass(String sObjectName) {
 		TriggerBase.bypassedObjects.add(sObjectName);
 	}
 
+	/**
+	 * @description This method clears the bypass for the specified object.
+	 *
+	 * @param sObjectName The API name of the object to clear the bypass for.
+	 */
 	public static void clearBypass(String sObjectName) {
 		TriggerBase.bypassedObjects.remove(sObjectName);
 	}
 
+	/**
+	 * @description This method checks if the specified object is bypassed.
+	 *
+	 * @param sObjectName The API name of the object to check the bypass for.
+	 * @return True if the object is bypassed, false otherwise.
+	 */
 	public static Boolean isBypassed(String sObjectName) {
 		return TriggerBase.bypassedObjects.contains(sObjectName);
 	}
 
+	/**
+	 * @description This method bypasses the execution of the specified object.
+	 *
+	 * @param sObjectType The sObjectType of the object to bypass.
+	 */
+	public static void bypass(Schema.sObjectType sObjectType) {
+		TriggerBase.bypassedObjects.add(
+			sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName()
+		);
+	}
+
+	/**
+	 * @description This method clears the bypass for the specified object.
+	 *
+	 * @param sObjectType The sObjectType of the object to clear the bypass for.
+	 */
+	public static void clearBypass(Schema.sObjectType sObjectType) {
+		TriggerBase.bypassedObjects.remove(
+			sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName()
+		);
+	}
+
+	/**
+	 * @description This method checks if the specified object is bypassed.
+	 *
+	 * @param sObjectType The sObjectType of the object to check the bypass for.
+	 * @return True if the object is bypassed, false otherwise.
+	 */
+	public static Boolean isBypassed(Schema.sObjectType sObjectType) {
+		return TriggerBase.bypassedObjects.contains(
+			sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName()
+		);
+	}
+
+	/**
+	 * @description This method clears all bypasses.
+	 */
 	public static void clearAllBypasses() {
 		TriggerBase.bypassedObjects.clear();
 	}
 
+	/**
+	 * @description This method offsets the number of existing DML rows.
+	 */
 	public static void offsetExistingDmlRows() {
 		existingDmlRowsOffset = Limits.getDMLRows();
 	}
 
+	/**
+	 * @description This method waits to finalize the DML operation.
+	 */
 	public static void waitToFinalize() {
 		suppressFinalizeExecution = true;
 	}
 
+	/**
+	 * @description This method now finalizes the DML operation.
+	 */
 	public static void nowFinalize() {
 		if (suppressFinalizeExecution == false) {
 			throw new TriggerBaseException(CANNOT_FINALIZE);
@@ -108,6 +201,9 @@ public inherited sharing virtual class TriggerBase {
 		instanceToFinalize?.finalizeDmlOperation();
 	}
 
+	/**
+	 * @description This method runs the trigger handler.
+	 */
 	public void run() {
 		if (!shouldRun()) {
 			return;
@@ -228,7 +324,7 @@ public inherited sharing virtual class TriggerBase {
 	}
 
 	@TestVisible
-	private virtual Integer getDmlRows() {
+	protected virtual Integer getDmlRows() {
 		return Limits.getDmlRows();
 	}
 
@@ -305,18 +401,41 @@ public inherited sharing virtual class TriggerBase {
 	@TestVisible
 	private class Stack {
 		private List<String> data = new List<String>();
+		/**
+		 * @description This method pushes the specified string onto the stack.
+		 *
+		 * @param s The string to push onto the stack.
+		 */
 		public void push(String s) {
 			data.add(s);
 		}
+
+		/**
+		 * @description This method returns the top element of the stack without removing it.
+		 *
+		 * @return The top element of the stack.
+		 */
 		public String peek() {
 			if (this.data.isEmpty()) {
 				throw new EmptyStackException();
 			}
 			return this.data.get(this.data.size() - 1);
 		}
+
+		/**
+		 * @description This method checks if the stack is empty.
+		 *
+		 * @return True if the stack is empty, false otherwise.
+		 */
 		public Boolean isEmpty() {
 			return this.data.isEmpty();
 		}
+
+		/**
+		 * @description This method pops the top element off the stack and returns it.
+		 *
+		 * @return The top element of the stack.
+		 */
 		public String pop() {
 			if (this.data.isEmpty()) {
 				throw new EmptyStackException();
@@ -325,6 +444,12 @@ public inherited sharing virtual class TriggerBase {
 			this.data.remove(this.data.size() - 1);
 			return response;
 		}
+
+		/**
+		 * @description This method returns the number of elements in the stack.
+		 *
+		 * @return The number of elements in the stack.
+		 */
 		public Integer depth() {
 			return this.data.size();
 		}

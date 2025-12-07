@@ -15,7 +15,7 @@
  */
 
 @SuppressWarnings('PMD.ApexDoc, PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest
+@IsTest(IsParallel=true)
 private class TriggerActionFlowClearBypassTest {
 	private static final String MY_STRING = 'MY_STRING';
 	private static List<TriggerActionFlowClearBypass.Request> requests = new List<TriggerActionFlowClearBypass.Request>();
@@ -84,7 +84,7 @@ private class TriggerActionFlowClearBypassTest {
 			myException,
 			'We should have an exception thrown in this scenario'
 		);
-		Assert.isInstanceOfType(
+		System.Assert.isInstanceOfType(
 			myException,
 			IllegalArgumentException.class,
 			'The exception should be of the correct type'

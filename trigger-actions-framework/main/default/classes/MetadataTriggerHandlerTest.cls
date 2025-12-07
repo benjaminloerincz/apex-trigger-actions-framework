@@ -15,7 +15,7 @@
  */
 
 @SuppressWarnings(
-	'PMD.ApexDoc, PMD.CyclomaticComplexity, PMD.ApexUnitTestClassShouldHaveRunAs'
+	'PMD.ApexDoc,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs'
 )
 @IsTest(isParallel=true)
 private class MetadataTriggerHandlerTest {
@@ -529,6 +529,17 @@ private class MetadataTriggerHandlerTest {
 	}
 
 	@IsTest
+	private static void nothingToProcessShouldExitEarly() {
+		handler.beforeInsertActionMetadata = new List<Trigger_Action__mdt>{
+			action
+		};
+
+		handler.beforeInsert(new List<Account>());
+
+		System.Assert.isFalse(executed, ACTION_SHOULD_NOT_EXECUTE);
+	}
+
+	@IsTest
 	private static void finalizerShouldSucceed() {
 		MetadataTriggerHandler.finalizerHandler = new TestFinalizerHandler();
 
@@ -618,6 +629,37 @@ private class MetadataTriggerHandlerTest {
 			MetadataTriggerHandler.bypassedActions.size(),
 			BYPASSES_SHOULD_BE_CONFIGURED_PROPERLY
 		);
+	}
+
+	@IsTest
+	private static void bypassWithTypeShouldSucceed() {
+		MetadataTriggerHandler.bypass(TestBeforeInsert.class);
+
+		System.Assert.isTrue(
+			MetadataTriggerHandler.bypassedActions.contains(TEST_BEFORE_INSERT),
+			BYPASSES_SHOULD_BE_CONFIGURED_PROPERLY
+		);
+	}
+
+	@IsTest
+	private static void clearBypassWithTypeShouldSucceed() {
+		MetadataTriggerHandler.bypass(TestBeforeInsert.class);
+		MetadataTriggerHandler.clearBypass(TestBeforeInsert.class);
+
+		System.Assert.isFalse(
+			MetadataTriggerHandler.bypassedActions.contains(TEST_BEFORE_INSERT),
+			BYPASSES_SHOULD_BE_CONFIGURED_PROPERLY
+		);
+	}
+
+	@IsTest
+	private static void isBypassedWithTypeShouldSucceed() {
+		Boolean isBypassed;
+		MetadataTriggerHandler.bypass(TestBeforeInsert.class);
+
+		isBypassed = MetadataTriggerHandler.isBypassed(TestBeforeInsert.class);
+
+		System.Assert.isTrue(isBypassed, BYPASSES_SHOULD_BE_CONFIGURED_PROPERLY);
 	}
 
 	@IsTest
@@ -738,37 +780,43 @@ private class MetadataTriggerHandlerTest {
 	}
 
 	public class TestBeforeInsert implements TriggerAction.BeforeInsert {
-		public void beforeInsert(List<SObject> newList) {
+		public void beforeInsert(List<SObject> triggerNew) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}
 	public class TestAfterInsert implements TriggerAction.AfterInsert {
-		public void afterInsert(List<SObject> newList) {
+		public void afterInsert(List<SObject> triggerNew) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}
 	public class TestBeforeUpdate implements TriggerAction.BeforeUpdate {
-		public void beforeUpdate(List<SObject> newList, List<SObject> oldList) {
+		public void beforeUpdate(
+			List<SObject> triggerNew,
+			List<SObject> triggerOld
+		) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}
 	public class TestAfterUpdate implements TriggerAction.AfterUpdate {
-		public void afterUpdate(List<SObject> newList, List<SObject> oldList) {
+		public void afterUpdate(
+			List<SObject> triggerNew,
+			List<SObject> triggerOld
+		) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}
 	public class TestBeforeDelete implements TriggerAction.BeforeDelete {
-		public void beforeDelete(List<SObject> oldList) {
+		public void beforeDelete(List<SObject> triggerOld) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}
 	public class TestAfterDelete implements TriggerAction.AfterDelete {
-		public void afterDelete(List<SObject> newList) {
+		public void afterDelete(List<SObject> triggerNew) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}
 	public class TestAfterUndelete implements TriggerAction.AfterUndelete {
-		public void afterUndelete(List<SObject> newList) {
+		public void afterUndelete(List<SObject> triggerNew) {
 			MetadataTriggerHandlerTest.executed = true;
 		}
 	}

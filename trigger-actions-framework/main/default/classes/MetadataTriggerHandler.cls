@@ -13,7 +13,71 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-@SuppressWarnings('PMD.ApexDoc, PMD.CognitiveComplexity')
+
+/**
+ * @group Trigger Actions Framework
+ * @description The `MetadataTriggerHandler` class is a trigger handler that executes Trigger
+ * Actions defined in Custom Metadata.
+ *
+ * This class implements the `TriggerAction` interface for all supported Trigger Operations:
+ *
+ * - `BeforeInsert`
+ * - `AfterInsert`
+ * - `BeforeUpdate`
+ * - `AfterUpdate`
+ * - `BeforeDelete`
+ * - `AfterDelete`
+ * - `AfterUndelete`
+ * ---
+ * The `MetadataTriggerHandler` class reads from the `Trigger_Action__mdt` Custom Metadata type to
+ * define Trigger Actions.
+ *
+ * Each Trigger Action must specify the following information:
+ *
+ * - `Apex_Class_Name__c`: The name of the Apex class that implements the Trigger Action.
+ * - `Order__c`: The order in which the Trigger Action should be executed.
+ * - `Flow_Name__c`: The name of the Flow to execute (optional).
+ * - `Bypass_Permission__c`: The permission required to bypass the Trigger Action (optional).
+ * - `Required_Permission__c`: The permission required to execute the Trigger Action (optional).
+ * - `Allow_Flow_Recursion__c`: Whether or not to allow the Flow to recurse (optional).
+ * ---
+ *
+ * The `MetadataTriggerHandler` class also uses the `sObject_Trigger_Setting__mdt` Custom Metadata type to define
+ * Trigger Action settings for specific sObjects.
+ *
+ * Each sObject Trigger Setting must specify the following information:
+ *
+ * - `Bypass_Permission__c`: The permission required to bypass the Trigger Action for the specified sObject (optional).
+ * - `Required_Permission__c`: The permission required to execute the Trigger Action for the specified sObject (optional).
+ * ---
+ *
+ * To use the `MetadataTriggerHandler` class, you must create a Trigger on the desired sObject and specify the
+ *  `MetadataTriggerHandler` class as the handler.
+ * You can then define Trigger Actions and sObject Trigger Settings in Custom Metadata to control the behavior of the Trigger.
+ *
+ *
+ * **Example:**
+ *
+ * ```
+ * trigger AccountTrigger on Account (
+ *   before insert,
+ *   after insert,
+ *   before update,
+ *   after update,
+ *   before delete,
+ *   after delete,
+ *   after undelete
+ * ) {
+ *     new MetadataTriggerHandler.run();
+ * }
+ * ```
+ *
+ * This example will execute all Trigger Actions defined in Custom Metadata for the `Account` sObject.
+ *
+ */
+@SuppressWarnings(
+	'PMD.CognitiveComplexity,PMD.StdCyclomaticComplexity,PMD.CyclomaticComplexity'
+)
 public inherited sharing class MetadataTriggerHandler extends TriggerBase implements TriggerAction.BeforeInsert, TriggerAction.AfterInsert, TriggerAction.BeforeUpdate, TriggerAction.AfterUpdate, TriggerAction.BeforeDelete, TriggerAction.AfterDelete, TriggerAction.AfterUndelete {
 	private static final String DOUBLE_UNDERSCORE = '__';
 	private static final String EMPTY_STRING = '';
@@ -24,10 +88,13 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 	private static final String QUERY_TEMPLATE = String.join(
 		new List<String>{
 			'SELECT Apex_Class_Name__c,',
+			'DeveloperName,',
 			'Order__c,',
 			'Flow_Name__c,',
 			'Bypass_Permission__c,',
 			'Required_Permission__c,',
+			'Entry_Criteria__c,',
+			'{0}__r.TriggerRecord_Class_Name__c,',
 			'Allow_Flow_Recursion__c,',
 			'{0}__r.Bypass_Permission__c,',
 			'{0}__r.Required_Permission__c',
@@ -53,55 +120,151 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 	@TestVisible
 	private static FinalizerHandler finalizerHandler = new FinalizerHandler();
 
+	/**
+	 * @description Bypass the execution of a Trigger Action.
+	 *
+	 * @param actionName The name of the Trigger Action to bypass.
+	 */
 	public static void bypass(String actionName) {
 		MetadataTriggerHandler.bypassedActions.add(actionName);
 	}
 
+	/**
+	 * @description Clear the bypass for a Trigger Action.
+	 *
+	 * @param actionName The name of the Trigger Action to clear the bypass for.
+	 */
 	public static void clearBypass(String actionName) {
 		MetadataTriggerHandler.bypassedActions.remove(actionName);
 	}
 
+	/**
+	 * @description Check if a Trigger Action is bypassed.
+	 *
+	 * @param actionName The name of the Trigger Action to check.
+	 * @return True if the Trigger Action is bypassed, false otherwise.
+	 */
 	public static Boolean isBypassed(String actionName) {
 		return MetadataTriggerHandler.bypassedActions.contains(actionName);
 	}
 
+	/**
+	 * @description Bypass the execution of a Trigger Action.
+	 *
+	 * @param actionType The Type of the Trigger Action to bypass.
+	 */
+	public static void bypass(System.Type actionType) {
+		MetadataTriggerHandler.bypassedActions.add(actionType.getName());
+	}
+
+	/**
+	 * @description Clear the bypass for a Trigger Action.
+	 *
+	 * @param actionType The Type of the Trigger Action to clear the bypass for.
+	 */
+	public static void clearBypass(System.Type actionType) {
+		MetadataTriggerHandler.bypassedActions.remove(actionType.getName());
+	}
+
+	/**
+	 * @description Check if a Trigger Action is bypassed.
+	 *
+	 * @param actionType The Type of the Trigger Action to check.
+	 * @return True if the Trigger Action is bypassed, false otherwise.
+	 */
+	public static Boolean isBypassed(System.Type actionType) {
+		return MetadataTriggerHandler.bypassedActions.contains(
+			actionType.getName()
+		);
+	}
+
+	/**
+	 * @description Clear all bypasses for Trigger Actions.
+	 */
 	public static void clearAllBypasses() {
 		MetadataTriggerHandler.bypassedActions.clear();
 	}
 
-	public void beforeInsert(List<SObject> newList) {
-		this.executeActions(TriggerOperation.BEFORE_INSERT, newList, null);
+	/**
+	 * @description Execute the Before Insert Trigger Actions.
+	 *
+	 * @param triggerNew The list of new records being inserted.
+	 */
+	public void beforeInsert(List<SObject> triggerNew) {
+		this.executeActions(TriggerOperation.BEFORE_INSERT, triggerNew, null);
 	}
 
-	public void afterInsert(List<SObject> newList) {
-		this.executeActions(TriggerOperation.AFTER_INSERT, newList, null);
+	/**
+	 * @description Execute the After Insert Trigger Actions.
+	 *
+	 * @param triggerNew The list of new records that were inserted.
+	 */
+	public void afterInsert(List<SObject> triggerNew) {
+		this.executeActions(TriggerOperation.AFTER_INSERT, triggerNew, null);
 	}
 
-	public void beforeUpdate(List<SObject> newList, List<SObject> oldList) {
-		this.executeActions(TriggerOperation.BEFORE_UPDATE, newList, oldList);
+	/**
+	 * @description Execute the Before Update Trigger Actions.
+	 *
+	 * @param triggerNew The list of updated records.
+	 * @param triggerOld The list of old records before the update.
+	 */
+	public void beforeUpdate(List<SObject> triggerNew, List<SObject> triggerOld) {
+		this.executeActions(TriggerOperation.BEFORE_UPDATE, triggerNew, triggerOld);
 	}
 
-	public void afterUpdate(List<SObject> newList, List<SObject> oldList) {
-		this.executeActions(TriggerOperation.AFTER_UPDATE, newList, oldList);
+	/**
+	 * @description Execute the After Update Trigger Actions.
+	 *
+	 * @param triggerNew The list of updated records.
+	 * @param triggerOld The list of old records before the update.
+	 */
+	public void afterUpdate(List<SObject> triggerNew, List<SObject> triggerOld) {
+		this.executeActions(TriggerOperation.AFTER_UPDATE, triggerNew, triggerOld);
 	}
 
-	public void beforeDelete(List<SObject> oldList) {
-		this.executeActions(TriggerOperation.BEFORE_DELETE, null, oldList);
+	/**
+	 * @description Execute the Before Delete Trigger Actions.
+	 *
+	 * @param triggerOld The list of records being deleted.
+	 */
+	public void beforeDelete(List<SObject> triggerOld) {
+		this.executeActions(TriggerOperation.BEFORE_DELETE, null, triggerOld);
 	}
 
-	public void afterDelete(List<SObject> oldList) {
-		this.executeActions(TriggerOperation.AFTER_DELETE, null, oldList);
+	/**
+	 * @description Execute the After Delete Trigger Actions.
+	 *
+	 * @param triggerOld The list of records that were deleted.
+	 */
+	public void afterDelete(List<SObject> triggerOld) {
+		this.executeActions(TriggerOperation.AFTER_DELETE, null, triggerOld);
 	}
 
-	public void afterUndelete(List<SObject> newList) {
-		this.executeActions(TriggerOperation.AFTER_UNDELETE, newList, null);
+	/**
+	 * @description Execute the After Undelete Trigger Actions.
+	 *
+	 * @param triggerNew The list of records that were undeleted.
+	 */
+	public void afterUndelete(List<SObject> triggerNew) {
+		this.executeActions(TriggerOperation.AFTER_UNDELETE, triggerNew, null);
 	}
 
+	/**
+	 * @description Finalize the DML operation.
+	 *
+	 * This method is called after all Trigger Actions have been executed.
+	 */
 	@TestVisible
 	protected override void finalizeDmlOperation() {
 		finalizerHandler.handleDynamicFinalizers();
 	}
 
+	/**
+	 * @description Populate the permission map.
+	 *
+	 * @param permissionName The name of the permission to check.
+	 */
 	private void populatePermissionMap(String permissionName) {
 		if (permissionName != null && !permissionMap.containsKey(permissionName)) {
 			permissionMap.put(
@@ -111,6 +274,12 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		}
 	}
 
+	/**
+	 * @description Get the Trigger Action metadata.
+	 *
+	 * @param relationshipName The name of the relationship to get the metadata for.
+	 * @return The list of Trigger Action metadata for the specified relationship.
+	 */
 	private list<Trigger_Action__mdt> getActionMetadata(String relationshipName) {
 		if (!sObjectToContextToActions.containsKey(this.sObjectName)) {
 			sObjectToContextToActions.put(
@@ -158,6 +327,13 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 			.get(relationshipName);
 	}
 
+	/**
+	 * @description Check if the Trigger Action should be executed.
+	 *
+	 * @param actionMetadata The Trigger Action metadata.
+	 * @param relationshipName The name of the relationship.
+	 * @return True if the Trigger Action should be executed, false otherwise.
+	 */
 	private Boolean shouldExecute(
 		Trigger_Action__mdt actionMetadata,
 		String relationshipName
@@ -181,110 +357,189 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 			populatePermissionMap(permissionName);
 		}
 
-		return isNotBypassed(
+		return !isBypassed(
 				actionMetadata.Bypass_Permission__c,
 				actionMetadata.Required_Permission__c
 			) &&
-			isNotBypassed(sObjectBypassPermissionName, sObjectRequiredPermissionName);
+			!isBypassed(sObjectBypassPermissionName, sObjectRequiredPermissionName);
 	}
 
-	private static boolean isNotBypassed(
-		String requiredPermission,
-		String bypassPermission
+	/**
+	 * @description Check if the Trigger Action or SObject is bypassed.
+	 *
+	 * @param bypassPermission The bypass permission for the Trigger Action.
+	 * @param requiredPermission The required permission for the Trigger Action.
+	 * @return True if bypassed, false otherwise.
+	 */
+	private static Boolean isBypassed(
+		String bypassPermission,
+		String requiredPermission
 	) {
-		return !((requiredPermission != null &&
-		permissionMap.get(requiredPermission)) ||
-		(bypassPermission != null && !permissionMap.get(bypassPermission)));
+		return (bypassPermission != null && permissionMap.get(bypassPermission)) ||
+			(requiredPermission != null && !permissionMap.get(requiredPermission));
 	}
 
+	/**
+	 * @description Execute the Trigger Actions.
+	 *
+	 * @param context The Trigger Operation context.
+	 * @param triggerNew The list of new records.
+	 * @param triggerOld The list of old records.
+	 */
 	private void executeActions(
 		TriggerOperation context,
-		List<SObject> newList,
-		List<SObject> oldList
+		List<SObject> triggerNew,
+		List<SObject> triggerOld
 	) {
-		List<Trigger_Action__mdt> actionMetadata;
-
-		switch on context {
-			when BEFORE_INSERT {
-				actionMetadata = this.beforeInsertActionMetadata;
+		for (Trigger_Action__mdt triggerMetadata : getActionMetadata(context)) {
+			Object triggerAction = getTriggerActionObject(context, triggerMetadata);
+			if (!canExecute(triggerMetadata)) {
+				continue;
 			}
-			when AFTER_INSERT {
-				actionMetadata = this.afterInsertActionMetadata;
-			}
-			when BEFORE_UPDATE {
-				actionMetadata = this.beforeUpdateActionMetadata;
-			}
-			when AFTER_UPDATE {
-				actionMetadata = this.afterUpdateActionMetadata;
-			}
-			when BEFORE_DELETE {
-				actionMetadata = this.beforeDeleteActionMetadata;
-			}
-			when AFTER_DELETE {
-				actionMetadata = this.afterDeleteActionMetadata;
-			}
-			when AFTER_UNDELETE {
-				actionMetadata = this.afterUndeleteActionMetadata;
-			}
-		}
-		for (Trigger_Action__mdt triggerMetadata : actionMetadata) {
-			Object triggerAction;
-			try {
-				triggerAction = Type.forName(triggerMetadata.Apex_Class_Name__c)
-					.newInstance();
-				if (triggerMetadata.Flow_Name__c != null) {
-					((TriggerActionFlow) triggerAction)
-						.flowName = triggerMetadata.Flow_Name__c;
-					((TriggerActionFlow) triggerAction)
-						.allowRecursion = triggerMetadata.Allow_Flow_Recursion__c;
-				}
-			} catch (System.NullPointerException e) {
-				handleException(
-					INVALID_CLASS_ERROR,
-					triggerMetadata.Apex_Class_Name__c,
-					context
-				);
-			}
-			if (
-				!MetadataTriggerHandler.isBypassed(
-					triggerMetadata.Apex_Class_Name__c
-				) && !TriggerBase.isBypassed(this.sObjectName)
-			) {
-				this.validateType(
+			this.validateType(
+				context,
+				triggerAction,
+				triggerMetadata.Apex_Class_Name__c
+			);
+			FormulaFilter.Result filtered = new FormulaFilter(
+					triggerMetadata,
 					context,
-					triggerAction,
-					triggerMetadata.Apex_Class_Name__c
-				);
-				switch on context {
-					when BEFORE_INSERT {
-						((TriggerAction.BeforeInsert) triggerAction).beforeInsert(newList);
-					}
-					when AFTER_INSERT {
-						((TriggerAction.AfterInsert) triggerAction).afterInsert(newList);
-					}
-					when BEFORE_UPDATE {
-						((TriggerAction.BeforeUpdate) triggerAction)
-							.beforeUpdate(newList, oldList);
-					}
-					when AFTER_UPDATE {
-						((TriggerAction.AfterUpdate) triggerAction)
-							.afterUpdate(newList, oldList);
-					}
-					when BEFORE_DELETE {
-						((TriggerAction.BeforeDelete) triggerAction).beforeDelete(oldList);
-					}
-					when AFTER_DELETE {
-						((TriggerAction.AfterDelete) triggerAction).afterDelete(oldList);
-					}
-					when AFTER_UNDELETE {
-						((TriggerAction.AfterUndelete) triggerAction)
-							.afterUndelete(newList);
-					}
+					this.sObjectName
+				)
+				.filterByEntryCriteria(triggerNew, triggerOld);
+
+			if (
+				Math.max(
+					(filtered.triggerOld == null) ? 0 : filtered.triggerOld.size(),
+					(filtered.triggerNew == null) ? 0 : filtered.triggerNew.size()
+				) == 0
+			) {
+				continue;
+			}
+
+			switch on context {
+				when BEFORE_INSERT {
+					((TriggerAction.BeforeInsert) triggerAction)
+						.beforeInsert(filtered.triggerNew);
+				}
+				when AFTER_INSERT {
+					((TriggerAction.AfterInsert) triggerAction)
+						.afterInsert(filtered.triggerNew);
+				}
+				when BEFORE_UPDATE {
+					((TriggerAction.BeforeUpdate) triggerAction)
+						.beforeUpdate(filtered.triggerNew, filtered.triggerOld);
+				}
+				when AFTER_UPDATE {
+					((TriggerAction.AfterUpdate) triggerAction)
+						.afterUpdate(filtered.triggerNew, filtered.triggerOld);
+				}
+				when BEFORE_DELETE {
+					((TriggerAction.BeforeDelete) triggerAction)
+						.beforeDelete(filtered.triggerOld);
+				}
+				when AFTER_DELETE {
+					((TriggerAction.AfterDelete) triggerAction)
+						.afterDelete(filtered.triggerOld);
+				}
+				when AFTER_UNDELETE {
+					((TriggerAction.AfterUndelete) triggerAction)
+						.afterUndelete(filtered.triggerNew);
 				}
 			}
 		}
 	}
 
+	/**
+	 * @description Retrieves the Trigger Action metadata based on the provided TriggerOperation context.
+	 * This method uses a switch statement to determine the appropriate metadata list based on the context.
+	 *
+	 * @param context The TriggerOperation context for which to retrieve metadata.
+	 * @return A List of Trigger_Action__mdt metadata records corresponding to the given context.
+	 */
+	private List<Trigger_Action__mdt> getActionMetadata(
+		TriggerOperation context
+	) {
+		List<Trigger_Action__mdt> result;
+		switch on context {
+			when BEFORE_INSERT {
+				result = this.beforeInsertActionMetadata;
+			}
+			when AFTER_INSERT {
+				result = this.afterInsertActionMetadata;
+			}
+			when BEFORE_UPDATE {
+				result = this.beforeUpdateActionMetadata;
+			}
+			when AFTER_UPDATE {
+				result = this.afterUpdateActionMetadata;
+			}
+			when BEFORE_DELETE {
+				result = this.beforeDeleteActionMetadata;
+			}
+			when AFTER_DELETE {
+				result = this.afterDeleteActionMetadata;
+			}
+			when AFTER_UNDELETE {
+				result = this.afterUndeleteActionMetadata;
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * @description Gets the trigger action object based on the trigger metadata.
+	 * This method attempts to create a new instance of the Apex class specified in the trigger metadata.
+	 * If the metadata specifies a flow name, it also sets the flow name and recursion allowance on the resulting object.
+	 * If the specified Apex class does not exist or cannot be instantiated, a MetadataTriggerHandlerException is thrown.
+	 *
+	 * @param context The TriggerOperation context.
+	 * @param triggerMetadata The metadata for the trigger action.
+	 * @return An instance of the trigger action class, or null if the class does not exist.
+	 */
+	private Object getTriggerActionObject(
+		TriggerOperation context,
+		Trigger_Action__mdt triggerMetadata
+	) {
+		Object result;
+		try {
+			result = Type.forName(triggerMetadata.Apex_Class_Name__c).newInstance();
+			if (triggerMetadata.Flow_Name__c != null) {
+				((TriggerActionFlow) result).flowName = triggerMetadata.Flow_Name__c;
+				((TriggerActionFlow) result)
+					.allowRecursion = triggerMetadata.Allow_Flow_Recursion__c;
+			}
+		} catch (System.NullPointerException e) {
+			handleException(
+				INVALID_CLASS_ERROR,
+				triggerMetadata.Apex_Class_Name__c,
+				context
+			);
+		}
+		return result;
+	}
+
+	/**
+	 * @description Checks if the trigger action can be executed.
+	 * The action can execute if it is not bypassed specifically by its class name
+	 * and the entire trigger handler is not bypassed for the current sObject.
+	 *
+	 * @param triggerMetadata The metadata for the trigger action.
+	 * @return True if the trigger action can be executed, false otherwise.
+	 */
+	private Boolean canExecute(Trigger_Action__mdt triggerMetadata) {
+		return !MetadataTriggerHandler.isBypassed(
+				triggerMetadata.Apex_Class_Name__c
+			) && !TriggerBase.isBypassed(this.sObjectName);
+	}
+
+	/**
+	 * @description Validate the type of the Trigger Action.
+	 *
+	 * @param context The Trigger Operation context.
+	 * @param triggerAction The Trigger Action object.
+	 * @param className The name of the Trigger Action class.
+	 */
 	private void validateType(
 		TriggerOperation context,
 		Object triggerAction,
@@ -319,6 +574,13 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		}
 	}
 
+	/**
+	 * @description Handle an exception.
+	 *
+	 * @param error The error message.
+	 * @param className The name of the Trigger Action class.
+	 * @param triggerOperation The Trigger Operation context.
+	 */
 	private void handleException(
 		String error,
 		String className,
@@ -336,6 +598,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		);
 	}
 
+	/**
+	 * @description Get the Before Insert Trigger Action metadata.
+	 *
+	 * @return The list of Before Insert Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> beforeInsertActionMetadata {
 		get {
@@ -349,6 +616,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		set;
 	}
 
+	/**
+	 * @description Get the After Insert Trigger Action metadata.
+	 *
+	 * @return The list of After Insert Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> afterInsertActionMetadata {
 		get {
@@ -362,6 +634,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		set;
 	}
 
+	/**
+	 * @description Get the Before Update Trigger Action metadata.
+	 *
+	 * @return The list of Before Update Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> beforeUpdateActionMetadata {
 		get {
@@ -375,6 +652,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		set;
 	}
 
+	/**
+	 * @description Get the After Update Trigger Action metadata.
+	 *
+	 * @return The list of After Update Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> afterUpdateActionMetadata {
 		get {
@@ -388,6 +670,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		set;
 	}
 
+	/**
+	 * @description Get the Before Delete Trigger Action metadata.
+	 *
+	 * @return The list of Before Delete Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> beforeDeleteActionMetadata {
 		get {
@@ -401,6 +688,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		set;
 	}
 
+	/**
+	 * @description Get the After Delete Trigger Action metadata.
+	 *
+	 * @return The list of After Delete Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> afterDeleteActionMetadata {
 		get {
@@ -414,6 +706,11 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 		set;
 	}
 
+	/**
+	 * @description Get the After Undelete Trigger Action metadata.
+	 *
+	 * @return The list of After Undelete Trigger Action metadata.
+	 */
 	@TestVisible
 	private List<Trigger_Action__mdt> afterUndeleteActionMetadata {
 		get {
@@ -429,11 +726,20 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 
 	@TestVisible
 	private virtual inherited sharing class Selector {
+		/**
+		 * @description Query the database.
+		 *
+		 * @param queryString The query string.
+		 * @return The list of SObjects returned by the query.
+		 */
 		public virtual List<SObject> query(String queryString) {
 			return Database.query(queryString);
 		}
 	}
 
+	/**
+	 * @description Exception thrown when a Trigger Action is not of the expected type.
+	 */
 	private class MetadataTriggerHandlerException extends Exception {
 	}
 }

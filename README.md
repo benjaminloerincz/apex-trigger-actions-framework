@@ -1,12 +1,8 @@
 # Apex Trigger Actions Framework
 
-<a href="https://githubsfdeploy.herokuapp.com?owner=mitchspano&amp;repo=apex-trigger-actions-framework">
-  <img src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png" alt="Deploy to Salesforce" />
-</a>
+#### [Unlocked Package Installation (Production)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tKY000000R0yHYAS)
 
-#### [Unlocked Package Installation (Production)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04t3h000004OYUDAA4)
-
-#### [Unlocked Package Installation (Sandbox)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04t3h000004OYUDAA4)
+#### [Unlocked Package Installation (Sandbox)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tKY000000R0yHYAS)
 
 ---
 
@@ -32,15 +28,15 @@ The related lists on the `SObject_Trigger_Setting__mdt` record provide a consoli
 
 The Trigger Actions Framework conforms strongly to the [Open–closed principle](https://en.wikipedia.org/wiki/Open%E2%80%93closed_principle) and the [Single-responsibility principle](https://en.wikipedia.org/wiki/Single-responsibility_principle). To add or modify trigger logic in our Salesforce org, we won't need to keep modifying the body of a TriggerHandler class; we can create a class or a flow with responsibility scoped to the automation we are trying to build and configure these actions to run in a specified order within a given trigger context.
 
-The work is performed in the `MetadataTriggerHandler` class which implements the the [Strategy Pattern](https://en.wikipedia.org/wiki/Strategy_pattern) by fetching all Trigger Action metadata that is configured in the org for the given trigger context and uses [reflection](https://en.wikipedia.org/wiki/Reflective_programming) to dynamically instantiate an object which implements a `TriggerAction` interface, then casts the object to the appropriate interface as specified in the metadata and calls the respective context methods in the order specified.
+The work is performed in the `MetadataTriggerHandler` class which implements the [Strategy Pattern](https://en.wikipedia.org/wiki/Strategy_pattern) by fetching all Trigger Action metadata that is configured in the org for the given trigger context and uses [reflection](https://en.wikipedia.org/wiki/Reflective_programming) to dynamically instantiate an object that implements a `TriggerAction`` interface, then casts the object to the appropriate interface as specified in the metadata and calls the respective context methods in the order specified.
 
 Note that if an Apex class is specified in metadata and it does not exist or does not implement the correct interface, a runtime error will occur.
 
 ---
 
-### Enabling on an SObject
+### Enabling for an SObject
 
-To get started, call the the `MetadataTriggerHandler` class within the body of the trigger of the sObject:
+To get started, call the `MetadataTriggerHandler` class within the body of the trigger of the sObject:
 
 ```java
 trigger OpportunityTrigger on Opportunity (
@@ -72,8 +68,8 @@ public class TA_Opportunity_StageInsertRules implements TriggerAction.BeforeInse
   @TestVisible
   private static final String INVALID_STAGE_INSERT_ERROR = 'The Stage must be \'Prospecting\' when an Opportunity is created';
 
-  public void beforeInsert(List<Opportunity> newList){
-    for (Opportunity opp : newList) {
+  public void beforeInsert(List<Opportunity> triggerNew){
+    for (Opportunity opp : triggerNew) {
       if (opp.StageName != PROSPECTING) {
         opp.addError(INVALID_STAGE_INSERT_ERROR);
       }
@@ -100,12 +96,86 @@ To make your flows usable, they must be auto-launched flows and you need to crea
 
 | Variable Name | Variable Type | Available for Input | Available for Output | Description                                        | Available Contexts       |
 | ------------- | ------------- | ------------------- | -------------------- | -------------------------------------------------- | ------------------------ |
-| record        | record        | yes                 | yes                  | the new version of the record in the DML operation | insert, update, undelete |
-| recordPrior   | record        | yes                 | no                   | the old version of the record in the DML operation | update, delete           |
+| `record`      | record        | yes                 | yes                  | the new version of the record in the DML operation | insert, update, undelete |
+| `recordPrior` | record        | yes                 | no                   | the old version of the record in the DML operation | update, delete           |
 
-To enable this flow, simply insert a trigger action record with `Apex_Class_Name__` equal to `TriggerActionFlow` and set the `Flow_Name__c` field with the API name of the flow itself. You can select the `Allow_Flow_Recursion__c` checkbox to allow flows to run recursively (advanced).
+To enable this flow, simply insert a trigger action record with `Apex_Class_Name__c` equal to `TriggerActionFlow` and set the `Flow_Name__c` field with the API name of the flow itself. You can select the `Allow_Flow_Recursion__c` checkbox to allow flows to run recursively (advanced).
 
 ![Flow Trigger Action](images/flowTriggerAction.png)
+
+> [!WARNING]
+>
+> **Trigger Action Flows and Recursion Depth**
+>
+> - **Key Point:** Trigger Action Flows are executed using the [`Invocable.Action` class](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Invocable_Action.htm) and are therefore subject to the (undocumented) "maximum recursion depth of 3" which is lower than the usual [trigger depth limit of 16](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_gov_limits.htm).
+> - **Why It Matters:** This limit can be reached when Trigger Action Flows perform DML operations that cascade across multiple objects with their own Trigger Action Flows.
+> - **When to Be Careful:** Exercise caution when using Trigger Action Flows in scenarios involving multiple DML operations or complex trigger chains.
+> - **Safe Use Cases:** Same-record updates, using the `addError` action to add a custom error message, and actions like workflow email alerts are generally safe.
+> - **How to Avoid Issues:** Implementing [Entry Criteria Formula](#Entry-Criteria-Formula) will reduce the likelihood of hitting the limit. Define entry criteria on all Flow actions whenever possible.
+
+### Flow Actions for Change Data Capture Events
+
+Trigger Action Flows can also be used to process Change Data Capture events, but there are two minor modifications necessary:
+
+#### Adjust the Flow Variables
+
+| Variable Name | Variable Type                          | Available for Input | Available for Output | Description                                                                                                                                                                               |
+| ------------- | -------------------------------------- | ------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `record`      | record                                 | yes                 | no                   | the changeEvent object                                                                                                                                                                    |
+| `header`      | `FlowChangeEventHeader` (Apex Defined) | yes                 | no                   | a flow-accessible version of the [`ChangeEventHeader` object](https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_event_fields_header.htm) |
+
+#### Adjust the `Trigger_Action__mdt` Record
+
+Create a trigger action record with `Apex_Class_Name__c` equal to `TriggerActionFlowChangeEvent` (instead of `TriggerActionFlow`) and set the `Flow_Name__c` field with the API name of the flow itself.
+
+---
+
+## Entry Criteria Formula
+
+Individual trigger actions can have their own dynamic entry criteria defined in a simple formula.
+This is a new feature and is built using the [`FormulaEval` namespace](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_namespace_formulaeval.htm) within Apex.
+
+### SObject Setup
+
+To define an entry criteria formula for a given trigger action, first define a class which extends `TriggerRecord`
+for the specific SObject type of interest.
+This class must be global and contains two global properties: `record` and `recordPrior` which get their value from `newSObject` and `oldSObject` downcast to the proper concrete SObject type. Below is an example of this class for the `Account` sObject:
+
+```java
+global class AccountTriggerRecord extends TriggerRecord {
+  global Account record {
+    get {
+      return (Account) this.newSObject;
+    }
+  }
+  global Account recordPrior {
+    get {
+      return (Account) this.oldSObject;
+    }
+  }
+}
+```
+
+Then enter the API name of that class in the `SObject_Trigger_Setting__mdt.TriggerRecord_Class_Name__c` field on the `SObject_Trigger_Setting__mdt` record of interest.
+
+Now, you can define a formula on the `Trigger_Action__mdt` record which operates on an instance of this class at runtime to determine if a record should be processed
+
+```
+record.Name = "Bob" && recordPrior.Name = "Joe"
+```
+
+> [!NOTE]
+> If the entry criteria field is null, the system will act as if there are no entry criteria and will process all records.
+
+![Entry Criteria](images/Entry_Criteria.png)
+
+Now, the automation will only execute for any records within the transaction for which the name used to be "Joe", but it is changed to "Bob".
+
+### Caveats
+
+> [!IMPORTANT]
+>
+> - **Field Traversal Limitations:** The `record` and `recordPrior` objects within the formula are limited to the fields directly available on the record itself. Cross-object traversal, such as `record.RecordType.DeveloperName`, is not supported.
 
 ---
 
@@ -126,10 +196,10 @@ Use the `TriggerBase.idToNumberOfTimesSeenBeforeUpdate` and `TriggerBase.idToNum
 ```java
 public class TA_Opportunity_RecalculateCategory implements TriggerAction.AfterUpdate {
 
-  public void afterUpdate(List<Opportunity> newList, List<Opportunity> oldList) {
-    Map<Id,Opportunity> oldMap = new Map<Id,Opportunity>(oldList);
+  public void afterUpdate(List<Opportunity> triggerNew, List<Opportunity> triggerOld) {
+    Map<Id,Opportunity> oldMap = new Map<Id,Opportunity>(triggerOld);
     List<Opportunity> oppsToBeUpdated = new List<Opportunity>();
-    for (Opportunity opp : newList) {
+    for (Opportunity opp : triggerNew) {
       if (
         TriggerBase.idToNumberOfTimesSeenAfterUpdate.get(opp.id) == 1 &&
         opp.StageName != oldMap.get(opp.id).StageName
@@ -172,29 +242,35 @@ You can bypass all actions on an sObject as well as specific Apex or Flow action
 
 #### Bypass from Apex
 
-To bypass from Apex, use the static `bypass(String name)` method in the `TriggerBase`, `MetadataTriggerHandler`, or `TriggerActionFlow` classes.
+The framework provides compile-safe bypass methods that accept type references.
+
+**Bypass sObjects using Schema.sObjectType:**
 
 ```java
 public void updateAccountsNoTrigger(List<Account> accountsToUpdate) {
-  TriggerBase.bypass('Account');
+  TriggerBase.bypass(Schema.Account.SObjectType);
   update accountsToUpdate;
-  TriggerBase.clearBypass('Account');
+  TriggerBase.clearBypass(Schema.Account.SObjectType);
 }
 ```
+
+**Bypass Apex classes using System.Type:**
 
 ```java
 public void insertOpportunitiesNoRules(List<Opportunity> opportunitiesToInsert) {
-  MetadataTriggerHandler.bypass('TA_Opportunity_StageInsertRules');
+  MetadataTriggerHandler.bypass(TA_Opportunity_StageInsertRules.class);
   insert opportunitiesToInsert;
-  MetadataTriggerHandler.clearBypass('TA_Opportunity_StageInsertRules');
+  MetadataTriggerHandler.clearBypass(TA_Opportunity_StageInsertRules.class);
 }
 ```
 
+**Bypass Flows using Flow.Interview:**
+
 ```java
 public void updateContactsNoFlow(List<Contacts> contactsToUpdate) {
-  TriggerActionFlow.bypass('Contact_Flow');
+  TriggerActionFlow.bypass(Flow.Interview.Contact_Flow.class);
   update contactsToUpdate;
-  TriggerActionFlow.clearBypass('Contact_Flow');
+  TriggerActionFlow.clearBypass(Flow.Interview.Contact_Flow.class);
 }
 ```
 
@@ -220,7 +296,7 @@ Developers can enter the API name of a permission in the `Bypass_Permission__c` 
 
 #### Required Permission
 
-Developers can enter the API name of a permission in the `Required_Permission__c` field. If this field has a value, then the trigger/action will only execute if the running user has the custom permission identified. This can be allow for new functionality to be released to a subset of users.
+Developers can enter the API name of a permission in the `Required_Permission__c` field. If this field has a value, then the trigger/action will only execute if the running user has the custom permission identified. This can allow for new functionality to be released to a subset of users.
 
 ---
 
@@ -245,17 +321,17 @@ public class TA_Opportunity_Queries {
   public Map<Id, Account> beforeAccountMap { get; private set; }
 
   public class Service implements TriggerAction.BeforeInsert {
-    public void beforeInsert(List<Opportunity> newList) {
+    public void beforeInsert(List<Opportunity> triggerNew) {
       TA_Opportunity_Queries.getInstance().beforeAccountMap = getAccountMapFromOpportunities(
-        newList
+        triggerNew
       );
     }
 
     private Map<Id, Account> getAccountMapFromOpportunities(
-      List<Opportunity> newList
+      List<Opportunity> triggerNew
     ) {
       Set<Id> accountIds = new Set<Id>();
-      for (Opportunity myOpp : newList) {
+      for (Opportunity myOpp : triggerNew) {
         accountIds.add(myOpp.AccountId);
       }
       return new Map<Id, Account>(
@@ -274,10 +350,10 @@ With the `TA_Opportunity_Queries` class configured as the first action, all subs
 
 ```java
 public class TA_Opportunity_StandardizeName implements TriggerAction.BeforeInsert {
-  public void beforeInsert(List<Opportunity> newList) {
+  public void beforeInsert(List<Opportunity> triggerNew) {
     Map<Id, Account> accountIdToAccount = TA_Opportunity_Queries.getInstance()
       .beforeAccountMap;
-    for (Opportunity myOpp : newList) {
+    for (Opportunity myOpp : triggerNew) {
       String accountName = accountIdToAccount.get(myOpp.AccountId)?.Name;
       myOpp.Name = accountName != null
         ? accountName + ' | ' + myOpp.Name
@@ -288,7 +364,7 @@ public class TA_Opportunity_StandardizeName implements TriggerAction.BeforeInser
 ```
 
 **Note:**
-In the example above, the top level class is the implementation of the Singleton pattern, but we also define an inner class called `Service` which is the actual Trigger Action itself. When using this pattern for query management, the `Apex_Class_Name__c` value on the `Trigger_Action__mdt` row would be `TA_Opportunity_Queries.Service`.
+In the example above, the top-level class is the implementation of the Singleton pattern, but we also define an inner class called `Service` which is the actual Trigger Action itself. When using this pattern for query management, the `Apex_Class_Name__c` value on the `Trigger_Action__mdt` row would be `TA_Opportunity_Queries.Service`.
 
 ![Query Setup](images/queriesService.png)
 
@@ -296,12 +372,12 @@ In the example above, the top level class is the implementation of the Singleton
 
 ## Use of Trigger Maps
 
-To avoid having to downcast from `Map<Id,sObject>`, we simply construct a new map out of our `newList` and `oldList` variables:
+To avoid having to downcast from `Map<Id,sObject>`, we simply construct a new map out of our `triggerNew` and `triggerOld` variables:
 
 ```java
-public void beforeUpdate(List<Opportunity> newList, List<Opportunity> oldList) {
-  Map<Id,Opportunity> newMap = new Map<Id,Opportunity>(newList);
-  Map<Id,Opportunity> oldMap = new Map<Id,Opportunity>(oldList);
+public void beforeUpdate(List<Opportunity> triggerNew, List<Opportunity> triggerOld) {
+  Map<Id,Opportunity> newMap = new Map<Id,Opportunity>(triggerNew);
+  Map<Id,Opportunity> oldMap = new Map<Id,Opportunity>(triggerOld);
   ...
 }
 ```
@@ -335,38 +411,38 @@ Take a look at how both of these are used in the `TA_Opportunity_StageChangeRule
 ```java
 @IsTest
 private static void invalidStageChangeShouldPreventSave() {
-  List<Opportunity> newList = new List<Opportunity>();
-  List<Opportunity> oldList = new List<Opportunity>();
+  List<Opportunity> triggerNew = new List<Opportunity>();
+  List<Opportunity> triggerOld = new List<Opportunity>();
   //generate fake Id
   Id myRecordId = TriggerTestUtility.getFakeId(Opportunity.SObjectType);
-  newList.add(
+  triggerNew.add(
     new Opportunity(
       Id = myRecordId,
       StageName = Constants.OPPORTUNITY_STAGENAME_CLOSED_WON
     )
   );
-  oldList.add(
+  triggerOld.add(
     new Opportunity(
       Id = myRecordId,
       StageName = Constants.OPPORTUNITY_STAGENAME_QUALIFICATION
     )
   );
 
-  new TA_Opportunity_StageChangeRules().beforeUpdate(newList, oldList);
+  new TA_Opportunity_StageChangeRules().beforeUpdate(triggerNew, triggerOld);
 
   //Use getErrors() SObject method to get errors from addError without performing DML
   System.assertEquals(
     true,
-    newList[0].hasErrors(),
+    triggerNew[0].hasErrors(),
     'The record should have errors'
   );
   System.assertEquals(
     1,
-    newList[0].getErrors().size(),
+    triggerNew[0].getErrors().size(),
     'There should be exactly one error'
   );
   System.assertEquals(
-    newList[0].getErrors()[0].getMessage(),
+    triggerNew[0].getErrors()[0].getMessage(),
     String.format(
       TA_Opportunity_StageChangeRules.INVALID_STAGE_CHANGE_ERROR,
       new List<String>{
@@ -389,11 +465,11 @@ The Apex Trigger Actions Framework now has support for a novel feature not found
 
 A DML finalizer is a piece of code that executes **exactly one time** at the very end of a DML operation.
 
-This is notably different than the final action within a given trigger context. The final configured action can be executed multiple times in case of cascading DML operations within trigger logic or when more than 200 records are included in the original DML operation. This can lead to challenges capturing logs or invoking asynchronous logic.
+This is notably different than the final action within a given trigger context. The final configured action can be executed multiple times in case of cascading DML operations within trigger logic or when more than 200 records are included in the original DML operation. This can lead to challenges when capturing logs or invoking asynchronous logic.
 
 DML finalizers can be very helpful for things such as _enqueuing a queuable operation_ or _inserting a collection of gathered logs_.
 
-Finalizers within the Apex Trigger Actions Framework operate using many of the same mechanisms. First define a class which implements the `TriggerAction.DmlFinalizer` interface. Include public static variables/methods so that the trigger actions executing can register objects to be processed during the finalizer's execution.
+Finalizers within the Apex Trigger Actions Framework operate using many of the same mechanisms. First, define a class that implements the `TriggerAction.DmlFinalizer` interface. Include public static variables/methods so that the trigger actions executing can register objects to be processed during the finalizer's execution.
 
 ```java
 public with sharing class OpportunityCategoryCalculator implements Queueable, TriggerAction.DmlFinalizer {
@@ -429,12 +505,12 @@ Finally, use the static variables/methods of the finalizer within your trigger a
 public with sharing class TA_Opportunity_RecalculateCategory implements TriggerAction.AfterUpdate {
 
   public void afterUpdate(
-    List<Opportunity> newList,
-    List<Opportunity> oldList
+    List<Opportunity> triggerNew,
+    List<Opportunity> triggerOld
   ) {
-    Map<Id, Opportunity> oldMap = new Map<Id, Opportunity>(oldList);
+    Map<Id, Opportunity> oldMap = new Map<Id, Opportunity>(triggerOld);
     List<Opportunity> toRecalculate = new List<Opportunity>();
-    for (Opportunity opp : newList) {
+    for (Opportunity opp : triggerNew) {
       if (opp.Amount != oldMap.get(opp.Id).Amount) {
         toRecalculate.add(opp);
       }
@@ -471,13 +547,13 @@ The `FinalizerHandler.Context` object specified in the `TriggerAction.DmlFinaliz
 
 #### Universal Adoption
 
-To use a DML Finalizer, the Apex Trigger Actions Framework must be enabled on every SObject which supports triggers which will have a DML operation on it during a transaction, and enabled in all trigger contexts on those sObjects. If DML is performed on an SObject that has a trigger which does not use the framework, the system will not be able to detect when to finalize the DML operation.
+To use a DML Finalizer, the Apex Trigger Actions Framework must be enabled on every SObject that supports triggers and will have a DML operation on it during a transaction, and enabled in all trigger contexts on those sObjects. If DML is performed on an SObject that has a trigger that does not use the framework, the system will not be able to detect when to finalize the DML operation.
 
 #### Offsetting the Number of DML Rows
 
-Detecting when to finalize the operation requires knowledge of the total number of records passed to the DML operation. Unfortunately, there is no bulletproof way of how to do this currently in Apex; the best thing we can do is to rely on `Limits.getDmlRows()` to infer the number of records passed to the DML operation.
+Detecting when to finalize the operation requires knowledge of the total number of records passed to the DML operation. Unfortunately, there is no bulletproof way to do this currently in Apex; the best thing we can do is to rely on `Limits.getDmlRows()` to infer the number of records passed to the DML operation.
 
-This works in most cases, but certain operations such as setting a `System.Savepoint` consume a DML row, and there are certain sObjects where triggers are not supported like `CaseTeamMember` which can throw off the counts and remove our ability to detect when to finalize. In order to avoid this problem, use the `TriggerBase.offsetExistingDmlRows()` method before calling the first DML operation within your Apex.
+This works in most cases, but certain operations (such as setting a `System.Savepoint`) consume a DML row, and there are certain sObjects where triggers are not supported like `CaseTeamMember` which can throw off the counts and remove our ability to detect when to finalize. In order to avoid this problem, use the `TriggerBase.offsetExistingDmlRows()` method before calling the first DML operation within your Apex.
 
 ```java
 Savepoint sp = Database.setSavepoint(); // adds to Limits.getDmlRows()
@@ -545,3 +621,19 @@ public void execute(FinalizerHandler.Context context) {
   }
 }
 ```
+
+---
+
+## Documentation Generation
+
+This project uses [ApexDocs](https://github.com/cparra/apexdocs) to generate documentation from Apex class comments. To generate the documentation:
+
+```bash
+npx @cparra/apexdocs markdown \
+    -s trigger-actions-framework \
+    -t docs \
+    -p public \
+    -g docsify
+```
+
+The generated documentation will be available in the `docs/` directory and can be viewed using any static site generator or served directly.

@@ -4,13 +4,13 @@
 			"path": "trigger-actions-framework",
 			"default": true,
 			"package": "Trigger Actions Framework",
-			"versionName": "Version 0.2",
-			"versionNumber": "0.2.1.NEXT"
+			"versionName": "Version 0.3",
+			"versionNumber": "0.3.1.NEXT"
 		}
 	],
 	"namespace": "",
 	"sfdcLoginUrl": "https://login.salesforce.com",
-	"sourceApiVersion": "56.0",
+	"sourceApiVersion": "63.0",
 	"packageAliases": {
 		"Trigger Actions Framework": "0Ho3h0000008Om4CAE",
 		"Trigger Actions Framework@0.1.0-1": "04t3h000004VaHaAAK",
@@ -27,6 +27,24 @@
 		"Trigger Actions Framework@0.2.1": "04t3h000004VaVFAA0",
 		"Trigger Actions Framework@0.2.2-1": "04t3h000004OYREAA4",
 		"Trigger Actions Framework@0.2.3-1": "04t3h000004OYTKAA4",
-		"Trigger Actions Framework@0.2.5-1": "04t3h000004OYUDAA4"
+		"Trigger Actions Framework@0.2.5-1": "04t3h000004OYUDAA4",
+		"Trigger Actions Framework@0.2.6-1": "04t3h000004juLaAAI",
+		"Trigger Actions Framework@0.2.8": "04t3h000004juLuAAI",
+		"Trigger Actions Framework@0.2.9": "04t3h000004juNCAAY",
+		"Trigger Actions Framework@0.2.9-1": "04t3h000004juNHAAY",
+		"Trigger Actions Framework@0.2.10": "04t3h000004juNRAAY",
+		"Trigger Actions Framework@0.2.11": "04tKY000000Pb8tYAC",
+		"Trigger Actions Framework@0.3.0": "04tKY000000Pb8ZYAS",
+		"Trigger Actions Framework@0.3.1-0": "04tKY000000Pd90YAC",
+		"Trigger Actions Framework@0.3.1-1": "04tKY000000Pd95YAC",
+		"Trigger Actions Framework@0.3.1-2": "04tKY000000Pd9AYAS",
+		"Trigger Actions Framework@0.3.1-3": "04tKY000000PdYBYA0",
+		"Trigger Actions Framework@0.3.1-4": "04tKY000000PdYGYA0",
+		"Trigger Actions Framework@0.3.1-5": "04tKY000000PdYaYAK",
+		"Trigger Actions Framework@0.3.1-6": "04tKY000000PdZ9YAK",
+		"Trigger Actions Framework@0.3.1-7": "04tKY000000PdZJYA0",
+		"Trigger Actions Framework@0.3.2": "04tKY000000PdZOYA0",
+		"Trigger Actions Framework@0.3.3": "04tKY000000QQ0RYAW",
+		"Trigger Actions Framework@0.3.4-1": "04tKY000000R0yHYAS"
 	}
 }

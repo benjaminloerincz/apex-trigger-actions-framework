@@ -14,7 +14,9 @@
    limitations under the License.
  */
 
-@SuppressWarnings('PMD.ApexDoc, PMD.ApexUnitTestClassShouldHaveRunAs')
+@SuppressWarnings(
+	'PMD.ApexDoc,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs'
+)
 @IsTest(isParallel=true)
 private class TriggerBaseTest {
 	private static final String ACCOUNT = 'Account';
@@ -296,6 +298,38 @@ private class TriggerBaseTest {
 	}
 
 	@IsTest
+	private static void bypassWithSObjectTypeShouldSucceed() {
+		TriggerBase.bypass(Schema.Account.SObjectType);
+
+		System.Assert.isTrue(
+			TriggerBase.bypassedObjects.contains(ACCOUNT),
+			BYPASSES_SHOULD_BE_CONFIGURED_CORRECTLY
+		);
+	}
+
+	@IsTest
+	private static void clearBypassWithSObjectTypeShouldSucceed() {
+		TriggerBase.bypass(Schema.Account.SObjectType);
+
+		TriggerBase.clearBypass(Schema.Account.SObjectType);
+
+		System.Assert.isFalse(
+			TriggerBase.bypassedObjects.contains(ACCOUNT),
+			BYPASSES_SHOULD_BE_CONFIGURED_CORRECTLY
+		);
+	}
+
+	@IsTest
+	private static void isBypassedWithSObjectTypeShouldSucceed() {
+		TriggerBase.bypass(Schema.Account.SObjectType);
+
+		System.Assert.isTrue(
+			TriggerBase.isBypassed(Schema.Account.SObjectType),
+			BYPASSES_SHOULD_BE_CONFIGURED_CORRECTLY
+		);
+	}
+
+	@IsTest
 	private static void offsetRowsShouldWork() {
 		TriggerBase.offsetExistingDmlRows();
 
@@ -446,32 +480,38 @@ private class TriggerBaseTest {
 		public Boolean executed = false;
 		public Boolean finalized = false;
 		public Integer dmlRows;
-		public void beforeInsert(List<SObject> newList) {
+		public void beforeInsert(List<SObject> triggerNew) {
 			this.executed = true;
 		}
-		public void afterInsert(List<SObject> newList) {
+		public void afterInsert(List<SObject> triggerNew) {
 			this.executed = true;
 		}
-		public void beforeUpdate(List<SObject> newList, List<SObject> oldList) {
+		public void beforeUpdate(
+			List<SObject> triggerNew,
+			List<SObject> triggerOld
+		) {
 			this.executed = true;
 		}
-		public void afterUpdate(List<SObject> newList, List<SObject> oldList) {
+		public void afterUpdate(
+			List<SObject> triggerNew,
+			List<SObject> triggerOld
+		) {
 			this.executed = true;
 		}
-		public void beforeDelete(List<SObject> oldList) {
+		public void beforeDelete(List<SObject> triggerOld) {
 			this.executed = true;
 		}
-		public void afterDelete(List<SObject> newList) {
+		public void afterDelete(List<SObject> triggerNew) {
 			this.executed = true;
 		}
-		public void afterUndelete(List<SObject> newList) {
+		public void afterUndelete(List<SObject> triggerNew) {
 			this.executed = true;
 		}
 		public override void finalizeDmlOperation() {
 			super.finalizeDmlOperation();
 			finalized = true;
 		}
-		private override Integer getDmlRows() {
+		protected override Integer getDmlRows() {
 			if (dmlRows != null) {
 				return dmlRows;
 			}

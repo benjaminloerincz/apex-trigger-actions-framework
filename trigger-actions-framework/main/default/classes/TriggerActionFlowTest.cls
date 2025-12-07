@@ -14,14 +14,17 @@
    limitations under the License.
  */
 
-@SuppressWarnings('PMD.ApexDoc, PMD.ApexUnitTestClassShouldHaveRunAs')
+@SuppressWarnings(
+	'PMD.ApexDoc,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity'
+)
 @IsTest(isParallel=true)
-public class TriggerActionFlowTest {
+private class TriggerActionFlowTest {
 	private static final String BOGUS = 'Bogus';
 	private static final String BYPASSES_SHOULD_BE_POPULATED_CORRECTLY = 'Static bypasses should be populated properly';
 	private static final String ERROR_MESSAGE_SHOULD_MATCH = 'The message should be what we expect';
 	private static final String ERROR_SHOULD_BE_ADDED = 'There should be an error added to the record';
 	private static final String ERROR_SHOULD_NOT_BE_ADDED = 'There should not be an error added to the record';
+	private static final String ERROR_NOT_NULLED_AFTER_FLOW = 'Field nulled in Flow was not written back to record variable';
 	private static final String EXCEPTION_SHOULD_BE_THROWN = 'An exception should be thrown';
 	private static final String EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE = 'The exception should have the correct message';
 	private static final String EXCEPTION_SHOULD_NOT_BE_THROWN = 'There should be no exception thrown when this method is called with a valid flow.';
@@ -33,6 +36,10 @@ public class TriggerActionFlowTest {
 	private static final String ONE_ERROR = 'There should be exactly one error';
 	private static final String SAMPLE_FLOW_NAME = 'TriggerActionFlowTest';
 	private static final String TEST = 'Test!';
+	private static final String SAMPLE_FLOW_TYPE_NAME =
+		TriggerActionFlow.FLOW_INTERVIEW_PREFIX +
+		'.' +
+		SAMPLE_FLOW_NAME;
 
 	private static Account myAccount = new Account(
 		Name = MY_ACCOUNT,
@@ -43,8 +50,8 @@ public class TriggerActionFlowTest {
 		Id = myAccount.Id
 	);
 	private static Account myAccountAfterFlow = myAccount.clone(true);
-	private static List<SObject> newList = new List<SObject>{ myAccount };
-	private static List<SObject> oldList = new List<SObject>{ oldAccount };
+	private static List<SObject> triggerNew = new List<SObject>{ myAccount };
+	private static List<SObject> triggerOld = new List<SObject>{ oldAccount };
 	private static TriggerActionFlow actionFlow;
 	private static Exception myException;
 
@@ -73,19 +80,18 @@ public class TriggerActionFlowTest {
 		TriggerActionFlow.bypass(SAMPLE_FLOW_NAME);
 
 		try {
-			actionFlow.beforeInsert(newList);
-			actionFlow.afterInsert(newList);
-			actionFlow.beforeUpdate(newList, oldList);
-			actionFlow.afterUpdate(newList, oldList);
-			actionFlow.beforeDelete(oldList);
-			actionFlow.afterDelete(oldList);
-			actionFlow.afterUndelete(oldList);
+			actionFlow.beforeInsert(triggerNew);
+			actionFlow.afterInsert(triggerNew);
+			actionFlow.beforeUpdate(triggerNew, triggerOld);
+			actionFlow.afterUpdate(triggerNew, triggerOld);
+			actionFlow.beforeDelete(triggerOld);
+			actionFlow.afterDelete(triggerOld);
+			actionFlow.afterUndelete(triggerOld);
 		} catch (Exception e) {
 			myException = e;
 		}
 
-		System.Assert.areEqual(
-			null,
+		System.Assert.isNull(
 			myException,
 			'There should be no exception thrown and the System should do nothing when the flow is bypassed'
 		);
@@ -113,7 +119,7 @@ public class TriggerActionFlowTest {
 		actionFlow.flowName = null;
 
 		try {
-			actionFlow.beforeInsert(newList);
+			actionFlow.beforeInsert(triggerNew);
 		} catch (Exception e) {
 			myException = e;
 		}
@@ -129,7 +135,7 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void beforeInsertShouldSucceed() {
-		actionFlow.beforeInsert(newList);
+		actionFlow.beforeInsert(triggerNew);
 
 		System.Assert.areEqual(FOO, myAccount.Name, NAME_SET_FROM_FLOW);
 		System.Assert.areEqual(true, myAccount.hasErrors(), ERROR_SHOULD_BE_ADDED);
@@ -143,7 +149,7 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void afterInsertShouldSucceed() {
-		actionFlow.afterInsert(newList);
+		actionFlow.afterInsert(triggerNew);
 
 		System.Assert.areEqual(
 			false,
@@ -154,7 +160,7 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void beforeUpdateShouldSucceed() {
-		actionFlow.beforeUpdate(newList, oldList);
+		actionFlow.beforeUpdate(triggerNew, triggerOld);
 
 		System.Assert.areEqual(FOO, myAccount.Name, NAME_SET_FROM_FLOW);
 		System.Assert.areEqual(true, myAccount.hasErrors(), ERROR_SHOULD_BE_ADDED);
@@ -168,17 +174,17 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void beforeUpdateWithNoRecordsToProcessShouldSucceed() {
-		newList.clear();
-		oldList.clear();
+		triggerNew.clear();
+		triggerOld.clear();
 
-		actionFlow.beforeUpdate(newList, oldList);
+		actionFlow.beforeUpdate(triggerNew, triggerOld);
 
 		System.Assert.areEqual(MY_ACCOUNT, myAccount.Name, NAME_SHOULD_REMAIN_SAME);
 	}
 
 	@IsTest
 	private static void afterUpdateShouldSucceed() {
-		actionFlow.afterUpdate(newList, oldList);
+		actionFlow.afterUpdate(triggerNew, triggerOld);
 
 		System.Assert.areEqual(
 			false,
@@ -189,10 +195,10 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void afterUpdateWithNoRecordsToProcessShouldSucceed() {
-		newList.clear();
-		oldList.clear();
+		triggerNew.clear();
+		triggerOld.clear();
 
-		actionFlow.afterUpdate(newList, oldList);
+		actionFlow.afterUpdate(triggerNew, triggerOld);
 
 		System.Assert.areEqual(
 			false,
@@ -203,7 +209,7 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void beforeDeleteShouldSucceed() {
-		actionFlow.beforeDelete(oldList);
+		actionFlow.beforeDelete(triggerOld);
 
 		System.Assert.areEqual(
 			false,
@@ -214,7 +220,7 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void afterDeleteShouldSucceed() {
-		actionFlow.afterDelete(oldList);
+		actionFlow.afterDelete(triggerOld);
 
 		System.Assert.areEqual(
 			false,
@@ -225,7 +231,7 @@ public class TriggerActionFlowTest {
 
 	@IsTest
 	private static void afterUndeleteShouldSucceed() {
-		actionFlow.afterUndelete(oldList);
+		actionFlow.afterUndelete(triggerOld);
 
 		System.Assert.areEqual(
 			false,
@@ -239,7 +245,7 @@ public class TriggerActionFlowTest {
 		successResult.getOutputParameters().clear();
 
 		try {
-			actionFlow.beforeInsert(newList);
+			actionFlow.beforeInsert(triggerNew);
 		} catch (IllegalArgumentException e) {
 			myException = e;
 		}
@@ -259,13 +265,25 @@ public class TriggerActionFlowTest {
 		successResult.getOutputParameters()
 			.put(TriggerActionConstants.RECORD_VARIABLE, myAccount);
 
-		actionFlow.beforeInsert(newList);
+		actionFlow.beforeInsert(triggerNew);
 
 		System.Assert.areEqual(
 			false,
 			myAccount.hasErrors(),
 			ERROR_SHOULD_NOT_BE_ADDED
 		);
+	}
+
+	@IsTest
+	private static void nulledFieldInFlowShouldBeTransferredBack() {
+		myAccount.BillingStreet = TEST;
+		oldAccount.BillingStreet = TEST;
+		myAccountAfterFlow = myAccount.clone(true);
+		myAccountAfterFlow.BillingStreet = null;
+
+		actionFlow.beforeUpdate(triggerNew, triggerOld);
+
+		System.Assert.isNull(myAccount.BillingStreet, ERROR_NOT_NULLED_AFTER_FLOW);
 	}
 
 	@IsTest
@@ -291,7 +309,7 @@ public class TriggerActionFlowTest {
 			}
 		);
 
-		actionFlow.beforeInsert(newList);
+		actionFlow.beforeInsert(triggerNew);
 
 		System.Assert.areEqual(true, myAccount.hasErrors(), ERROR_SHOULD_BE_ADDED);
 		System.Assert.areEqual(1, myAccount.getErrors().size(), ONE_ERROR);
@@ -347,6 +365,169 @@ public class TriggerActionFlowTest {
 	}
 
 	@IsTest
+	private static void bypassWithTypeShouldSucceed() {
+		TriggerActionFlow.nameExtractor = new FakeNameExtractor(
+			SAMPLE_FLOW_TYPE_NAME
+		);
+		TriggerActionFlow.bypass(Flow.Interview.TriggerActionFlowTest.class);
+
+		System.Assert.isTrue(
+			TriggerActionFlow.bypassedFlows.contains(SAMPLE_FLOW_NAME),
+			BYPASSES_SHOULD_BE_POPULATED_CORRECTLY
+		);
+	}
+
+	@IsTest
+	private static void clearBypassWithTypeShouldSucceed() {
+		TriggerActionFlow.nameExtractor = new FakeNameExtractor(
+			SAMPLE_FLOW_TYPE_NAME
+		);
+		TriggerActionFlow.bypass(Flow.Interview.TriggerActionFlowTest.class);
+		TriggerActionFlow.clearBypass(Flow.Interview.TriggerActionFlowTest.class);
+
+		System.Assert.isFalse(
+			TriggerActionFlow.bypassedFlows.contains(SAMPLE_FLOW_NAME),
+			BYPASSES_SHOULD_BE_POPULATED_CORRECTLY
+		);
+	}
+
+	@IsTest
+	private static void isBypassedWithTypeShouldSucceed() {
+		TriggerActionFlow.nameExtractor = new FakeNameExtractor(
+			SAMPLE_FLOW_TYPE_NAME
+		);
+		Boolean isBypassed;
+		TriggerActionFlow.bypass(Flow.Interview.TriggerActionFlowTest.class);
+
+		isBypassed = TriggerActionFlow.isBypassed(
+			Flow.Interview.TriggerActionFlowTest.class
+		);
+
+		System.Assert.isTrue(isBypassed, BYPASSES_SHOULD_BE_POPULATED_CORRECTLY);
+	}
+
+	@IsTest
+	private static void bypassWithInvalidTypeShouldThrowException() {
+		try {
+			TriggerActionFlow.bypass(String.class);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.TYPE_MUST_REPRESENT_FLOW_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
+	private static void clearBypassWithInvalidTypeShouldThrowException() {
+		try {
+			TriggerActionFlow.clearBypass(String.class);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.TYPE_MUST_REPRESENT_FLOW_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
+	private static void isBypassedWithInvalidTypeShouldThrowException() {
+		try {
+			TriggerActionFlow.isBypassed(String.class);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.TYPE_MUST_REPRESENT_FLOW_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
+	private static void bypassWithNonExistentFlowShouldThrowException() {
+		try {
+			TriggerActionFlow.bypass(
+				Flow.Interview.SomeBogusClassWhichDoesNotExist.class
+			);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.FLOW_DOES_NOT_EXIST_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
+	private static void bypassWithNullTypeShouldThrowException() {
+		try {
+			TriggerActionFlow.bypass((System.Type) null);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.TYPE_MUST_BE_PROVIDED_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
+	private static void clearBypassWithNullTypeShouldThrowException() {
+		try {
+			TriggerActionFlow.clearBypass((System.Type) null);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.TYPE_MUST_BE_PROVIDED_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
+	private static void isBypassedWithNullTypeShouldThrowException() {
+		try {
+			TriggerActionFlow.isBypassed((System.Type) null);
+		} catch (Exception e) {
+			myException = e;
+		}
+
+		System.Assert.areNotEqual(null, myException, EXCEPTION_SHOULD_BE_THROWN);
+		System.Assert.areEqual(
+			true,
+			myException.getMessage()
+				.contains(TriggerActionFlow.TYPE_MUST_BE_PROVIDED_ERROR),
+			EXCEPTION_SHOULD_HAVE_THE_CORRECT_MESSAGE
+		);
+	}
+
+	@IsTest
 	private static void invokeFlowShouldReturnUnsuccessfulResponseWithBogusFlowName() {
 		List<Invocable.Action.Result> results = new TriggerActionFlow.InvocableAction()
 			.invokeAction(
@@ -387,6 +568,7 @@ public class TriggerActionFlowTest {
 			this.outputParameters = outputParameters;
 			return this;
 		}
+		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 		public InvocableActionResultBuilder setSuccess(Boolean success) {
 			this.success = success;
 			return this;
@@ -439,6 +621,18 @@ public class TriggerActionFlowTest {
 				),
 				Invocable.Action.error.class
 			);
+		}
+	}
+
+	private class FakeNameExtractor extends TriggerActionFlow.NameExtractor {
+		private String mockTypeName;
+
+		public FakeNameExtractor(String mockTypeName) {
+			this.mockTypeName = mockTypeName;
+		}
+
+		public override String extractName(System.Type flowType) {
+			return this.mockTypeName;
 		}
 	}
 }
