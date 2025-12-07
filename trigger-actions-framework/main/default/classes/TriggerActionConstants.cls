@@ -19,6 +19,7 @@
  * @description This class contains constants used by the TriggerAction framework.
  */
 public class TriggerActionConstants {
+	public static final String ALL_STRING = 'All';
 	public static final String APEX_STRING = 'Apex';
 	public static final String FLOW_STRING = 'Flow';
 	public static final String OBJECT_STRING = 'Object';
@@ -27,6 +28,7 @@ public class TriggerActionConstants {
 	public static final String INVALID_FLOW_NAME = 'You must provide the name of a flow to execute';
 	public static final String INVALID_TYPE = 'The bypassType must equal Object, Apex, or Flow';
 	public static final Set<String> REQUEST_TYPES = new Set<String>{
+		TriggerActionConstants.ALL_STRING,
 		TriggerActionConstants.APEX_STRING,
 		TriggerActionConstants.FLOW_STRING,
 		TriggerActionConstants.OBJECT_STRING

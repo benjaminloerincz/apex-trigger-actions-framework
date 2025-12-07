@@ -48,6 +48,10 @@ public inherited sharing class TriggerActionFlowClearAllBypasses {
 	}
 
 	private class ClearBypassesProcessor extends TriggerActionFlowBypassProcessor {
+		protected override void processAllBypasses(String name) {
+			TriggerBase.clearAllBypasses();
+		}
+
 		protected override void processApexBypasses(String name) {
 			MetadataTriggerHandler.clearAllBypasses();
 		}

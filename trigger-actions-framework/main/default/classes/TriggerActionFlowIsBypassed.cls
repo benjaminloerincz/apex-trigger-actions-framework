@@ -83,6 +83,10 @@ public inherited sharing class TriggerActionFlowIsBypassed {
 			return this.hasBeenBypassed;
 		}
 
+		protected override void processAllBypasses(String name) {
+			this.hasBeenBypassed = TriggerBase.isBypassed(name);
+		}
+
 		protected override void processApexBypasses(String name) {
 			this.hasBeenBypassed = MetadataTriggerHandler.isBypassed(name);
 		}

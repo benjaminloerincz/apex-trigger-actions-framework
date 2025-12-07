@@ -171,6 +171,15 @@ public inherited sharing virtual class TriggerBase {
 	}
 
 	/**
+	 * @description This method bypasses the execution of all objects.
+	 */
+	public static void bypassAll() {
+		for (String sobjectNameWithNamespace : TriggerBase.allObjectNames) {
+			TriggerBase.bypass(sobjectNameWithNamespace);
+		}
+	}
+
+	/**
 	 * @description This method clears all bypasses.
 	 */
 	public static void clearAllBypasses() {
@@ -396,6 +405,27 @@ public inherited sharing virtual class TriggerBase {
 				? triggerNew.size()
 				: triggerOld != null ? triggerOld.size() : 0;
 		}
+	}
+
+	private static List<String> allObjectNames {
+		get {
+			if (allObjectNames == null) {
+				allObjectNames = new List<String>();
+				for (sObject_Trigger_Setting__mdt triggerSetting : [
+					SELECT Object_Namespace__c, Object_API_Name__c
+					FROM sObject_Trigger_Setting__mdt
+				]) {
+					String sObjectToBypass =
+						(String.isBlank(triggerSetting.Object_Namespace__c)
+							? ''
+							: (triggerSetting.Object_Namespace__c + '__')) +
+						triggerSetting.Object_API_Name__c;
+					allObjectNames.add(sObjectToBypass);
+				}
+			}
+			return allObjectNames;
+		}
+		set;
 	}
 
 	@TestVisible

@@ -20,7 +20,7 @@
  * trigger action flows, Apex classes, and Object triggers.
  *
  * To use this class, you must first create a subclass that implements the
- * `processApexBypasses`, `processFlowBypasses`, and `processObjectBypasses` methods.
+ * `processAllBypasses`, `processApexBypasses`, `processFlowBypasses`, and `processObjectBypasses` methods.
  * You can then use the `execute` method to process bypass requests for the specified
  *  type of bypass.
  */
@@ -34,6 +34,8 @@ public inherited sharing abstract class TriggerActionFlowBypassProcessor {
 	public void execute(String requestType, String requestName) {
 		if (!TriggerActionConstants.REQUEST_TYPES.contains(requestType)) {
 			throw new IllegalArgumentException(TriggerActionConstants.INVALID_TYPE);
+		} else if (requestType == TriggerActionConstants.ALL_STRING) {
+			this.processAllBypasses(requestName);
 		} else if (requestType == TriggerActionConstants.FLOW_STRING) {
 			this.processFlowBypasses(requestName);
 		} else if (requestType == TriggerActionConstants.APEX_STRING) {
@@ -43,6 +45,7 @@ public inherited sharing abstract class TriggerActionFlowBypassProcessor {
 		}
 	}
 
+	protected abstract void processAllBypasses(String requestType);
 	protected abstract void processApexBypasses(String requestType);
 	protected abstract void processFlowBypasses(String requestType);
 	protected abstract void processObjectBypasses(String requestType);

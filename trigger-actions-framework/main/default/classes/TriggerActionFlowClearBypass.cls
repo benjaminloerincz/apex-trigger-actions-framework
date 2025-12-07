@@ -74,11 +74,15 @@ public inherited sharing class TriggerActionFlowClearBypass {
 	 * @description The `FlowClearBypassProcessor` class is a subclass of the `TriggerActionFlowBypassProcessor`
 	 * class that is used to clear bypasses for objects, Apex actions, or Flow actions.
 	 *
-	 * The `FlowClearBypassProcessor` class overrides the `processApexBypasses`, `processFlowBypasses`,
-	 * and `processObjectBypasses` methods of the `TriggerActionFlowBypassProcessor` class to clear the bypasses
-	 * for Apex actions, Flow actions, and objects, respectively.
+	 * The `FlowClearBypassProcessor` class overrides the `processAllBypasses`, `processApexBypasses`,
+	 * `processFlowBypasses` and `processObjectBypasses` methods of the `TriggerActionFlowBypassProcessor`
+	 * class to clear the bypasses for Apex actions, Flow actions, and objects, respectively.
 	 */
 	private class FlowClearBypassProcessor extends TriggerActionFlowBypassProcessor {
+		protected override void processAllBypasses(String name) {
+			TriggerBase.clearBypass(name);
+		}
+
 		protected override void processApexBypasses(String name) {
 			MetadataTriggerHandler.clearBypass(name);
 		}

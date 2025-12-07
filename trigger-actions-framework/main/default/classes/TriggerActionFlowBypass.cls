@@ -22,7 +22,7 @@
  * Each `Request` object contains the following properties:
  *
  * - `name`: The API name of the trigger action flow, Apex class, or Object trigger to bypass.
- * - `bypassType`: The type of bypass to perform. Valid values are `Apex`, `Flow`, or `Object`.
+ * - `bypassType`: The type of bypass to perform. Valid values are `All`, `Apex`, `Flow`, or `Object`.
  *
  */
 @SuppressWarnings('PMD.CognitiveComplexity')
@@ -50,19 +50,23 @@ public inherited sharing class TriggerActionFlowBypass {
 	public class Request {
 		@InvocableVariable(
 			label='Name'
-			description='API Name of the trigger action flow, class, or sObject'
+			description='All or API Name of the trigger action flow, class, or sObject'
 			required=true
 		)
 		public String name;
 		@InvocableVariable(
 			label='Bypass Type'
-			description='Apex, Flow, or Object'
+			description='All, Apex, Flow, or Object'
 			required=true
 		)
 		public String bypassType;
 	}
 
 	private class FlowBypassProcessor extends TriggerActionFlowBypassProcessor {
+		protected override void processAllBypasses(String name) {
+			TriggerBase.bypassAll();
+		}
+
 		protected override void processApexBypasses(String name) {
 			MetadataTriggerHandler.bypass(name);
 		}

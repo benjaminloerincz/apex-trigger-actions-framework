@@ -280,7 +280,7 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 	 * @param relationshipName The name of the relationship to get the metadata for.
 	 * @return The list of Trigger Action metadata for the specified relationship.
 	 */
-	private list<Trigger_Action__mdt> getActionMetadata(String relationshipName) {
+	private List<Trigger_Action__mdt> getActionMetadata(String relationshipName) {
 		if (!sObjectToContextToActions.containsKey(this.sObjectName)) {
 			sObjectToContextToActions.put(
 				this.sObjectName,
@@ -291,7 +291,7 @@ public inherited sharing class MetadataTriggerHandler extends TriggerBase implem
 			!sObjectToContextToActions.get(this.sObjectName)
 				.containsKey(relationshipName)
 		) {
-			list<Trigger_Action__mdt> result = new List<Trigger_Action__mdt>();
+			List<Trigger_Action__mdt> result = new List<Trigger_Action__mdt>();
 			String sObjectLocalName = this.sObjectName;
 			List<String> split = sObjectName.split(DOUBLE_UNDERSCORE);
 			String namespace;
