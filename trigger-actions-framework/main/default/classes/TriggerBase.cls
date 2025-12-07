@@ -407,10 +407,10 @@ public inherited sharing virtual class TriggerBase {
 		}
 	}
 
-	private static List<String> allObjectNames {
+	private static Set<String> allObjectNames {
 		get {
 			if (allObjectNames == null) {
-				allObjectNames = new List<String>();
+				allObjectNames = new Set<String>();
 				for (sObject_Trigger_Setting__mdt triggerSetting : [
 					SELECT Object_Namespace__c, Object_API_Name__c
 					FROM sObject_Trigger_Setting__mdt
